@@ -1,59 +1,124 @@
-import { Component } from 'react';
-import Searchbar from './Searchbar/Searchbar';
-//import ImageGallery from './ImageGallery/ImageGallery';
-import api from 'servise/api';
+import { useState } from 'react';
 
-export default class App extends Component {
-  state = {
-    searchName: '',
-    page: 1,
-    images: [],
-  };
-  componentDidUpdate(prevProps, prevState) {
+function FilterableProductTable({ products }) {
+  const [filterText, setFilterText] = useState('');
+  const [inStockOnly, setInStockOnly] = useState(false);
+
+  return (
+    <div>
+      <SearchBar 
+        filterText={filterText} 
+        inStockOnly={inStockOnly} 
+        onFilterTextChange={setFilterText} 
+        onInStockOnlyChange={setInStockOnly} />
+      <ProductTable 
+        products={products} 
+        filterText={filterText}
+        inStockOnly={inStockOnly} />
+    </div>
+  );
+}
+
+function ProductCategoryRow({ category }) {
+  return (
+    <tr>
+      <th colSpan="2">
+        {category}
+      </th>
+    </tr>
+  );
+}
+
+function ProductRow({ product }) {
+  const name = product.stocked ? product.name :
+    <span style={{ color: 'red' }}>
+      {product.name}
+    </span>;
+
+  return (
+    <tr>
+      <td>{name}</td>
+      <td>{product.price}</td>
+    </tr>
+  );
+}
+
+function ProductTable({ products, filterText, inStockOnly }) {
+  const rows = [];
+  let lastCategory = null;
+
+  products.forEach((product) => {
     if (
-      prevState.searchName !== this.state.searchName ||
-      prevState.page !== this.state.page
+      product.name.toLowerCase().indexOf(
+        filterText.toLowerCase()
+      ) === -1
     ) {
-      api
-        .getImages(this.state.searchName, this.state.page)
-        .then(response => {
-          //const { hits: images, totalHits } = response;
-          this.setState(prevState => ({
-            images: [
-              ...prevState.images,
-              ...this.normalizetImage(response.hits),
-            ],
-            //      showBtn: this.state.page < Math.ceil(response.totalHits / 12),
-          }));
-        })
-        .catch(error => {
-          console.log(error.message);
-          /* this.setState({ showBtn: false }); */
-        });
-      //  .finally(() => this.setState({ isLoading: false }));
+      return;
     }
-  }
-
-  normalizetImage(hits) {
-    return hits.map(({ id, webformatURL, largeImageURL, tags }) => ({
-      id,
-      webformatURL,
-      largeImageURL,
-      tags,
-    }));
-  }
-  handleFormSubmit = searchName => {
-    if (searchName === this.state.searchName) return;
-    this.setState({
-      searchName: searchName,
-    });
-  };
-  render() {
-    return (
-      <>
-        <Searchbar onSubmit={this.handleFormSubmit} />
-        {/*     //<ImageGallery /> */}
-      </>
+    if (inStockOnly && !product.stocked) {
+      return;
+    }
+    if (product.category !== lastCategory) {
+      rows.push(
+        <ProductCategoryRow
+          category={product.category}
+          key={product.category} />
+      );
+    }
+    rows.push(
+      <ProductRow
+        product={product}
+        key={product.name} />
     );
-  }
+    lastCategory = product.category;
+  });
+
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Price</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>
+  );
+}
+
+function SearchBar({
+  filterText,
+  inStockOnly,
+  onFilterTextChange,
+  onInStockOnlyChange
+}) {
+  return (
+    <form>
+      <input 
+        type="text" 
+        value={filterText} placeholder="Search..." 
+        onChange={(e) => onFilterTextChange(e.target.value)} />
+      <label>
+        <input 
+          type="checkbox" 
+          checked={inStockOnly} 
+          onChange={(e) => onInStockOnlyChange(e.target.checked)} />
+        {' '}
+        Only show products in stock
+      </label>
+    </form>
+  );
+}
+
+const PRODUCTS = [
+  {category: "Fruits", price: "$1", stocked: true, name: "Apple"},
+  {category: "Fruits", price: "$1", stocked: true, name: "Dragonfruit"},
+  {category: "Fruits", price: "$2", stocked: false, name: "Passionfruit"},
+  {category: "Vegetables", price: "$2", stocked: true, name: "Spinach"},
+  {category: "Vegetables", price: "$4", stocked: false, name: "Pumpkin"},
+  {category: "Vegetables", price: "$1", stocked: true, name: "Peas"}
+];
+
+export default function App() {
+  return <FilterableProductTable products={PRODUCTS} />;
 }
